@@ -36,9 +36,9 @@ class EyeBERT_MicroX(object):
     returns dict with DDM info from the SFP
   BERTreadStats()
     returns dict with ongoing test stats
-  setBERTwaveLength()
+  setBERTwaveLength(wl)
     sets wavelength in nm to use during the BER test
-  setBERTdataRate()
+  setBERTdataRate(dr)
     sets datarate in Gbps to use during the BER test
   setBERTpattern(pattern)
     sets pattern to use during the BER test. `pattern` must be one of:
@@ -107,6 +107,9 @@ class EyeBERT_MicroX(object):
 
     self.timeStart = datetime.now()
     self._prevBitCount = -1
+
+    # reset stats
+    self.BERTrestartTest()
 
   def _open(self):
     # note here baudrate can be anything
@@ -394,8 +397,8 @@ if __name__ == "__main__":
                           useJson=useJson,
                           )
 
+  # get SFP info
   tester.getSFPinfo()
-  tester.BERTrestartTest()
 
   userInput = []
   while 1:
