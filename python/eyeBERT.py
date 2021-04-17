@@ -331,7 +331,7 @@ class EyeBERT_MicroX(object):
     d = {'setting': {'bert-datarate': float(rate_Gbps)}}
     self.__print(msg, d)
     self._write("setrate " + str(int(float(rate_Gbps)*1e6))) # kbps
-    # this will effectively restart the test, so le't make it obvious
+    # this will effectively restart the test, so let's make it obvious
     self.BERTrestartTest()
 
   def setBERTpattern(self, patt):
@@ -340,7 +340,7 @@ class EyeBERT_MicroX(object):
       d = {'setting': {'bert-pattern': patt}}
       self.__print(msg, d)
       self._write("setpat " + self._bertPatterns[patt])
-      # this will effectively restart the test, so le't make it obvious
+      # this will effectively restart the test, so let's make it obvious
       self.BERTrestartTest()
     else:
       msg = "invalid pattern '%s'" % patt
@@ -369,6 +369,7 @@ class EyeBERT_MicroX(object):
     b = (self._read()).decode()
     print(b)
 
+
 if __name__ == "__main__":
   # parse arguments. serial port path needed
   parser = argparse.ArgumentParser()
@@ -377,14 +378,13 @@ if __name__ == "__main__":
   parser.add_argument('-w', '--wavelen', type=float, help="wavelength in nm. default taken from sfp")
   parser.add_argument('-p', '--pattern', help="bert pattern as \"PRBS<7|9|11|15|23|31|58|63>\". default \"PRBS7\"")
   parser.add_argument('-f', '--frequency', type=float, default=1., help="polling frequency. default 1Hz")
-  parser.add_argument('-s', '--silent', action='store_true', help="no printed output")
   parser.add_argument('-j', '--json', action='store_true', help="output as json")
 
   args = parser.parse_args()
   serPort = args.port
   pollTimeout = 1./args.frequency
   useJson = args.json
-  silentPrint = args.silent
+  silentPrint = False
   datarate = args.rate
   wavelen = args.wavelen
   pattern = args.pattern
