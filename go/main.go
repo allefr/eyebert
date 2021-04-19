@@ -9,12 +9,11 @@ import (
 )
 
 func main() {
-	fmt.Println(eyeBERT.PattPRBS31)
 
 	p := &eyeBERT.BERTParams{
-		SerPort:  "/dev/tty.usbmodem142101",
-		DataRate: 10.3125,
-		Pattern:  eyeBERT.PattPRBS31,
+		SerPort: "/dev/tty.usbmodem142101", // example on MacOs
+		// DataRate: 10.3125,
+		// Pattern:  eyeBERT.PattPRBS31,
 	}
 	tester, err := eyeBERT.New(p)
 	if err != nil {
@@ -50,7 +49,12 @@ func main() {
 	for {
 		stats, err = tester.GetStats()
 		if err != nil {
-			fmt.Printf("error: %v\n\n", err)
+			if err != eyeBERT.ErrTesterStuck {
+				fmt.Printf("error: %v\n\n", err)
+			} else {
+				log.Fatalln(err)
+				break
+			}
 		}
 		fmt.Println(stats)
 		time.Sleep(200 * time.Millisecond)

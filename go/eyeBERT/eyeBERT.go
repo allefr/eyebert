@@ -1,6 +1,7 @@
 package eyeBERT
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -117,6 +118,12 @@ var (
 func New(p *BERTParams) (d BERTDriver, err error) {
 	driver := &device{}
 
+	// cannot continue with no serial port
+	if p.SerPort == "" {
+		err = ErrSerPort
+		return
+	}
+
 	c := &serial.Config{
 		Name:        p.SerPort,
 		Baud:        115200, // doesn't matter, as long as it's supported by the OS
@@ -124,7 +131,7 @@ func New(p *BERTParams) (d BERTDriver, err error) {
 	}
 	driver.conn, err = serial.OpenPort(c)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	prevBitCount = -1.
@@ -166,20 +173,28 @@ func (d *device) write(s string) error {
 	return err
 }
 
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (d *device) read(l int) (b []byte, err error) {
+	var n_ int
+
 	// cannot read more than 1020 bytes (on MacOs at least)
 	for n := l; n > 0; n -= 1020 {
-		b_ := make([]byte, n)
-		var n_ int
+		b_ := make([]byte, minInt(n, 1020))
 
 		n_, err = d.conn.Read(b_)
-		if err != nil {
-			return b, err
+		if err != nil && err.Error() != "EOF" {
+			return
 		}
-
 		// if no read, tester is most likely stuck
 		if n_ == 0 {
-			err = fmt.Errorf("tester seems stuck! please power cycle it")
+			err = ErrTesterStuck
+			// log.Fatalf("%v", TesterStuck)
 			return
 		}
 
@@ -223,7 +238,7 @@ func (d *device) GetTesterInfo() (r BERTester, err error) {
 		r.Model = strn[0] + " " + strn[1]
 		r.Version = strings.ReplaceAll(strn[2], ":", "")
 	} else {
-		err = fmt.Errorf("un-expected reply from tester")
+		err = ErrReply
 	}
 
 	return
@@ -273,9 +288,9 @@ func (d *device) GetSFPinfo() (s SFPData, err error) {
 			}
 		}
 	} else if strings.Contains(strn[0], "No SFP Inserted") {
-		err = fmt.Errorf("no SFP detected")
+		err = ErrNoSFP
 	} else {
-		err = fmt.Errorf("un-expected reply from tester")
+		err = ErrReply
 	}
 
 	return
@@ -355,7 +370,7 @@ func (d *device) GetStats() (bS BERStats, err error) {
 		bS.EyeHorzUI = float32(b[23]) / 32.
 		bS.EyeVertmV = float32(b[24]) * 3.125
 	} else {
-		err = fmt.Errorf("un-expected reply from tester")
+		err = ErrReply
 	}
 
 	return
@@ -431,6 +446,13 @@ func (d *device) StopTest() (err error) {
 func (d *device) Close() error {
 	return d.conn.Close()
 }
+
+var (
+	ErrSerPort     = errors.New("no serial port provided")
+	ErrTesterStuck = errors.New("tester seems stuck! please power cycle it")
+	ErrNoSFP       = errors.New("no SFP detected")
+	ErrReply       = errors.New("un-expected reply from tester")
+)
 
 // for validation only
 var _ Serial = &serial.Port{}
