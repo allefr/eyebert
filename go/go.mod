@@ -1,4 +1,4 @@
-module github.com/allefr/spectronix-eyeBERT/go
+module github.com/allefr/eyebert/go
 
 go 1.16
 

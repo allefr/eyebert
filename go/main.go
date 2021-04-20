@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/allefr/spectronix-eyeBERT/go/eyeBERT"
+	"github.com/allefr/eyebert/go/eyeBERT"
 )
 
 func main() {
