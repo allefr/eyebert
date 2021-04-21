@@ -1,4 +1,4 @@
-package eyeBERT
+package eyebert
 
 import (
 	"errors"
