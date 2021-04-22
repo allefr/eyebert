@@ -28,6 +28,12 @@ Now on the left of your command line should be present a `(python)` prefix, iden
 
 ## Usage
 
+See Go implementation [here](./go/README.md)
+
+### Running the Python package
+
+The python package can either be used standalone, or imported.
+
 The user _must_ provide the serial port connected to the tester as argument.
 
 On Linux or MacOs the correct port can be found by typing
@@ -39,10 +45,6 @@ ls /dev/tty*
 before and after connecting the USB port of the tester to the computer; after connecting the tester, a new port is displayed. On MacOs, it is usually in the form `/dev/tty.usbmodem142101`.
 
 On Windows, after making sure the correct driver is installed (check Spectronix website), the serial port is detected as a `COM` port, e.g. `COM3`. The Device Manager can be used to see what number is assigned.
-
-### Running the Python package
-
-The python package can either be used standalone, or imported.
 
 #### Run Standalone
 
