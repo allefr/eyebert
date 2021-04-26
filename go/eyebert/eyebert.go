@@ -134,6 +134,11 @@ func New(p *BERTParams) (d BERTDriver, err error) {
 		return
 	}
 
+	_, err = driver.GetTesterInfo()
+	if err != nil {
+		return
+	}
+
 	prevBitCount = -1.
 	timeStart = time.Now()
 	err = driver.StopTest()

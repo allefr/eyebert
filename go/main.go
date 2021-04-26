@@ -75,7 +75,7 @@ func print(i interface{}, asJson bool) error {
 	switch t := i.(type) {
 	case eyebert.BERTester:
 		d := i.(eyebert.BERTester)
-		fmt.Printf("BER Model: %s - Version %s\n", d.Model, d.Version)
+		fmt.Printf("BERT Model: %s - Version %s\n", d.Model, d.Version)
 	case eyebert.SFPData:
 		d := i.(eyebert.SFPData)
 		fmt.Printf("SFP: %s (%s, %s) - %.1fkm %.1fnm %.1fdegC Rx %.2fdBm Tx %.2fdBm\n",
@@ -83,7 +83,7 @@ func print(i interface{}, asJson bool) error {
 			d.Temperature, d.RxPow, d.TxPow)
 	case eyebert.BERStats:
 		d := i.(eyebert.BERStats)
-		fmt.Printf("%12s\tBERT: %13e (errCnt: %12e) eye: %4.2fUI %6.2fmV %22s\r",
+		fmt.Printf("%12s\tBER: %13e (errCnt: %12e) eye: %4.2fUI %6.2fmV %22s\r",
 			d.Duration, d.BER, d.ErrCnt, d.EyeHorzUI, d.EyeVertmV, d.Status)
 	default:
 		_ = t

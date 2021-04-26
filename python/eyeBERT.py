@@ -30,104 +30,87 @@ class EyeBERT_MicroX(object):
 
   Methods
   -------
-  getBERTinfo()
+  getTesterInfo()
     returns dict of model and version of the tester
   getSFPinfo()
     returns dict with DDM info from the SFP
-  BERTreadStats()
+  getStats()
     returns dict with ongoing test stats
-  setBERTwaveLength(wl)
+  setWaveLength(wl)
     sets wavelength in nm to use during the BER test
-  setBERTdataRate(dr)
+  setDataRate(dr)
     sets datarate in Gbps to use during the BER test
-  setBERTpattern(pattern)
-    sets pattern to use during the BER test. `pattern` must be one of:
-    - pattLowPow
-    - pattPRBS7
-    - pattPRBS9
-    - pattPRBS11
-    - pattPRBS15
-    - pattPRBS23
-    - pattPRBS31
-    - pattPRBS58
-    - pattPRBS63
-    - pattLoopBk
+  setPattern(pattern)
+    sets pattern to use during the BER test
   setSFPtxEnable(on)
     turns SFP tx On or Off
-  BERTrestartTest()
+  resetStats()
     resets all test stats, effectively re-starting the BER test
-  BERTrunQuickTest()
+  runQuickTest()
     runs quick test using datarates ranging from what the SFP supports
+  Close()
+    closes the serial port
   """
 
   _bertPatterns = {pattLowPow: "0",
                    pattPRBS7: "7",   
-                   pattPRBS9: "9",  # PRBS 2^9-1
-                   pattPRBS11: "1", # PRBS 2^11-1
-                   pattPRBS15: "5", # PRBS 2^15-1
-                   pattPRBS23: "2", # PRBS 2^23-1
-                   pattPRBS31: "3", # PRBS 2^31-1
-                   pattPRBS58: "8", # PRBS 2^58-1
-                   pattPRBS63: "6", # PRBS 2^63-1
-                   pattLoopBk: "L", # data on the input is retransmitted on the output
+                   pattPRBS9: "9",
+                   pattPRBS11: "1",
+                   pattPRBS15: "5",
+                   pattPRBS23: "2",
+                   pattPRBS31: "3",
+                   pattPRBS58: "8",
+                   pattPRBS63: "6",
+                   pattLoopBk: "L",
   }
 
   def __init__(self, port: str,
-               wavelen=None,
                datarate=None,
                pattern=None,
-               noOutput: bool=True,
-               useJson: bool=False,
                ):
     """
     Parameters
     ----------
     port : str
       path to the serial port connected to the Tester
-    noOutput : bool, optional
-      by default do not print stuff
-    useJson : bool, optional
-      output as json
+    datarate : optional
+      datarate in Gbps. default taken from SFP
+    pattern : optional
+      BER pattern to use. default PRBS7
     """
     self.serPort = port
     self._ser = self._open()
 
-    self._json = useJson
-    self._noOutput = noOutput
-
     # BERT info
-    self.getBERTinfo()
+    self.getTesterInfo()
 
-    if wavelen is not None:
-      self.setBERTwaveLength(wavelen)
     if datarate is not None:
-      self.setBERTdataRate(datarate)
+      self.setDataRate(datarate)
     if pattern is not None:
-      self.setBERTpattern(pattern)
+      self.setPattern(pattern)
 
     self.timeStart = datetime.now()
     self._prevBitCount = -1
 
     # reset stats
-    self.BERTrestartTest()
+    self.resetStats()
 
   def _open(self):
     # note here baudrate can be anything
     ser = serial.Serial(port=self.serPort, baudrate=500000, timeout=1)
     if not ser.isOpen():
-      msg = "can't open serial port! ('%s')" % self.serPort
-      self.__print(msg, {'status': msg})
+      print("can't open serial port! ('%s')" % self.serPort)
       exit(-1)
+
+    # get rid of any garbage in the serial buffer
     ser.flushInput()
     ser.flushOutput()
-    # get rid of any garbage in the serial buffer
     while ser.inWaiting():
       ser.read()
-    time.sleep(.1)
 
     return ser
 
-  def _close(self):
+  def Close(self):
     self._ser.close()
 
   def _write(self, cmd_string):
@@ -135,6 +118,7 @@ class EyeBERT_MicroX(object):
       self._ser.read()
     # do not use "=", it crashes the tester
     self._ser.write((cmd_string.replace("=", " ") + "\r\n").encode())
+    time.sleep(.01)
 
   def _read(self, num=None):
     buff = bytearray([])
@@ -145,11 +129,9 @@ class EyeBERT_MicroX(object):
       time.sleep(.5)
       while self._ser.inWaiting():
         buff.extend(self._ser.read())
-    # print(len(buff))
     if len(buff) == 0:
-      err = "tester seems stuck! please power cycle it"
-      self.__print(err, {'status': err})
-      self._close()
+      print("tester seems stuck! please power cycle it")
+      self.Close()
       exit(-2)
 
     return buff
@@ -164,26 +146,22 @@ class EyeBERT_MicroX(object):
         return
     print(s, end='\r' if overwrite else '\n')
 
-  def getBERTinfo(self):
+  def getTesterInfo(self):
     self._write("?")
-    time.sleep(.05)
+    time.sleep(.02)
     b = (self._read()).decode()
-    # print(b)
+
     strn = b.split()
     if len(strn) >= 3:
       BERTmodel = strn[0] + " " + strn[1]
       BERTversion = strn[2].replace(":", "")
       status = 'ok'
-      msg = "model %s, version: %s" % (BERTmodel, BERTversion)
     else:
       BERTmodel = None
       BERTversion = None
       status = "un-expected reply from tester"
-      msg = status
     
-    d = {'model': BERTmodel, 'version': BERTversion, 'status': status}
-    self.__print(msg, d)
-    return d
+    return {'model': BERTmodel, 'version': BERTversion, 'status': status}
 
   def getSFPinfo(self):
     self._write("sfp")
@@ -191,7 +169,7 @@ class EyeBERT_MicroX(object):
     # total bytes to receive is around 2303, but only care about first part
     # still need to wait till all the data is received, or will fuck up other commands.. :(
     b = (self._read(2250)).decode()
-    # print(b)
+
     msg = None
     # this has multiple lines
     strn = b.split("\n")
@@ -211,34 +189,29 @@ class EyeBERT_MicroX(object):
           SFPrxPow = float(ln.split()[2])
         if "Tx Power" in ln:
           SFPtxPow = float(ln.split()[2])
+          # no more useful lines after this, can exit
+          break
         if "Media" in ln:
           SFPdistanceKm = float(ln.split()[2])
         if "Bit Rate" in ln:
           SFPminBitRateGbps = float(ln.split()[2])
           SFPmaxBitRateGbps = float(ln.split()[4])
     elif "No SFP Inserted" in strn:
-      msg = "no SFP detected"
-      d = {'status': msg}
+      return {'status': "no SFP detected"}
     else:
-      msg = "un-expected reply from tester"
-      d = {'status': msg}
+      return {'status': "un-expected reply from tester"}
 
-    if msg is None:
-      msg = "SFP: %s (%s, %s) - %dkm %.1fnm %.1fdegC Rx %.2fdBm Tx %.2fdBm" % (SFPserial, SFPvendor, SFPpartNum, SFPdistanceKm, SFPwaveLen, SFPtemp, SFPrxPow, SFPtxPow)
-      d = {'vendor': SFPvendor,
-           'part-num': SFPpartNum,
-           'serial': SFPserial,
-           'wavelength': SFPwaveLen,
-           'distance-km': SFPdistanceKm,
-           'min-rate-gbps': SFPminBitRateGbps,
-           'max-rate-gbps': SFPmaxBitRateGbps,
-           'temperature': SFPtemp,
-           'rx-pow': SFPrxPow,
-           'tx-pow': SFPtxPow,
-           'status': 'ok'}
-
-    self.__print(msg, d)
-    return d
+    return {'vendor': SFPvendor,
+            'part-num': SFPpartNum,
+            'serial': SFPserial,
+            'wavelength': SFPwaveLen,
+            'distance-km': SFPdistanceKm,
+            'min-rate-gbps': SFPminBitRateGbps,
+            'max-rate-gbps': SFPmaxBitRateGbps,
+            'temperature': SFPtemp,
+            'rx-pow': SFPrxPow,
+            'tx-pow': SFPtxPow,
+            'status': 'ok'}
 
   def _checkBERTpattern(self, byt):
     for p in self._bertPatterns.keys():
@@ -246,10 +219,11 @@ class EyeBERT_MicroX(object):
         return p
     return "unknown ('" + chr(byt) + "')"
 
-  def BERTreadStats(self):
+  def getStats(self):
     self._write("r")
-    time.sleep(.005)
+    time.sleep(.01)
     b = self._read(27)
+
     if len(b) >= 27:
       currBitRateGbps = float(b[0]*math.pow(2,24)+b[1]*math.pow(2,16)+b[2]*math.pow(2,8)+b[3])/1e8
       currBertPattern = self._checkBERTpattern(b[4])
@@ -271,9 +245,7 @@ class EyeBERT_MicroX(object):
         statuStr = "SFP signal but no lock"
       else:
         msg = "SFP wtf status (0x%2.2X)" % currSfpStatus
-        d = {'status': msg}
-        self.__print("\n%s" % msg, d)
-        return d
+        return {'status': msg}
 
       if currSfpStatus & 0x40 == 0:
         statuStr = "no SFP detected"
@@ -293,75 +265,56 @@ class EyeBERT_MicroX(object):
 
       if b[26] != 0x00:
         msg = "unexpected termination (0x%2.2x != 0x00)" % b[26]
-        d = {'status': msg}
-        self.__print(msg, d)
-        return d
+        return {'status': msg}
       
       elapsedTime = str(datetime.now()-self.timeStart)[:-3]
-      msg = "%s\tBERT: %13e (errCnt: %12e) eye: %4.2fUI %6.2fmV %22s" % (elapsedTime, currBER, currBitErrCount, currEyeHoriz, currEyeVert, statuStr)
       d = {'datetime': str(datetime.utcnow().isoformat("T"))+"Z", # RFC3339Nano format
-            'duration': elapsedTime,
-            'ber': currBER,
-            'bit-cnt': currBitCount,
-            'err-cnt': currBitErrCount,
-            'rate-gpbs': currBitRateGbps,
-            'pattern': currBertPattern,
-            'sfp-rx-pow': currSfpRxPow,
-            'sfp-tx-pow': currSfpTxPow,
-            'sfp-temp': currSfpTemp,
-            'eye-horz': currEyeHoriz,
-            'eye-vert': currEyeVert,
-            'status': 'ok' if statuStr == '' else statuStr}
-      self.__print(msg, d, False if self._json else True)
+           'duration': elapsedTime,
+           'ber': currBER,
+           'bit-cnt': currBitCount,
+           'err-cnt': currBitErrCount,
+           'rate-gpbs': currBitRateGbps,
+           'pattern': currBertPattern,
+           'sfp-rx-pow': currSfpRxPow,
+           'sfp-tx-pow': currSfpTxPow,
+           'sfp-temp': currSfpTemp,
+           'eye-horz': currEyeHoriz,
+           'eye-vert': currEyeVert,
+           'status': 'ok' if statuStr == '' else statuStr}
     else:
-      msg = "un-expected reply from tester"
-      d = {'status': msg}
-      self.__print("\n%s\n" % msg, d)
+      d = {'status': "un-expected reply from tester"}
     
     return d
 
-  def setBERTwaveLength(self, wl_nm):
-    msg = "setting BERT wavelength to %.2f nm.." % float(wl_nm)
-    d = {'setting': {'bert-wavelength': float(wl_nm)}}
-    self.__print(msg, d)
+  def setWaveLength(self, wl_nm):
     self._write("setwl " + str(wl_nm))
 
-  def setBERTdataRate(self, rate_Gbps):
-    msg = "setting BERT datarate to %d Gbps.." % float(rate_Gbps)
-    d = {'setting': {'bert-datarate': float(rate_Gbps)}}
-    self.__print(msg, d)
+  def setDataRate(self, rate_Gbps):
     self._write("setrate " + str(int(float(rate_Gbps)*1e6))) # kbps
     # this will effectively restart the test, so let's make it obvious
-    self.BERTrestartTest()
+    self.resetStats()
 
-  def setBERTpattern(self, patt):
+  def setPattern(self, patt):
     if patt in self._bertPatterns.keys():
-      msg = "setting BERT pattern to %s" % (patt)
-      d = {'setting': {'bert-pattern': patt}}
-      self.__print(msg, d)
       self._write("setpat " + self._bertPatterns[patt])
       # this will effectively restart the test, so let's make it obvious
-      self.BERTrestartTest()
+      self.resetStats()
+
+      return True
     else:
-      msg = "invalid pattern '%s'" % patt
-      self.__print(msg, {'status': msg})
+      return False
 
   def setSFPtxEnable(self, on: bool):
-    msg = "setting SFP tx enable: %s" % str(on)
-    d = {'setting': {'sfp-txEnable': on}}
-    self.__print(msg, d)
     cmdV = "1" if on else "0"
     self._write("tx " + cmdV)
 
-  def BERTrestartTest(self):
-    msg = "test reset"
-    d = {'status': msg}
-    self.__print(msg, d)
-    self._write("reset")
+  def resetStats(self):
     self._prevBitCount = -1
     self.timeStart = datetime.now()
 
-  def BERTrunQuickTest(self):
+    self._write("reset")
+
+  def runQuickTest(self):
     print("\nBERT run quick test")
     self._write("test")
     print("test running.. ")
@@ -370,12 +323,34 @@ class EyeBERT_MicroX(object):
     print(b)
 
 
+def __print(d, useJson):
+  endWith = '\n'
+  if useJson:
+    strData = json.dumps(d)
+  else:
+    if 'model' in d.keys():
+      strData = "BERT Model: %s - Version %s" % (d['model'], d['version'])
+    elif 'distance-km' in d.keys():
+      strData = "SFP: %s (%s, %s) - %.1fkm %.1fnm %.1fdegC Rx %.2fdBm Tx %.2fdBm" % \
+        (d['serial'], d['vendor'], d['part-num'], d['distance-km'], d['wavelength'], \
+        d['temperature'], d['rx-pow'], d['tx-pow'])
+    elif 'ber' in d.keys():
+      strData = "%12s\tBER: %13e (errCnt: %12e) eye: %4.2fUI %6.2fmV %22s" % \
+        (d['duration'], d['ber'], d['err-cnt'], d['eye-horz'], d['eye-vert'], d['status'])
+      endWith = '\r'
+    elif 'status' in d.keys():
+      strData = d['status']
+    else:
+      # unknown ??
+      return
+
+  print(strData, end=endWith)
+
 if __name__ == "__main__":
   # parse arguments. serial port path needed
   parser = argparse.ArgumentParser()
-  parser.add_argument('port', help="serial port path")
+  parser.add_argument('port', help="serial port")
   parser.add_argument('-r', '--rate', type=float, help="datarate in Gbps. default taken from sfp")
-  parser.add_argument('-w', '--wavelen', type=float, help="wavelength in nm. default taken from sfp")
   parser.add_argument('-p', '--pattern', help="bert pattern as \"PRBS<7|9|11|15|23|31|58|63>\". default \"PRBS7\"")
   parser.add_argument('-f', '--frequency', type=float, default=1., help="polling frequency. default 1Hz")
   parser.add_argument('-j', '--json', action='store_true', help="output as json")
@@ -384,21 +359,13 @@ if __name__ == "__main__":
   serPort = args.port
   pollTimeout = 1./args.frequency
   useJson = args.json
-  silentPrint = False
   datarate = args.rate
-  wavelen = args.wavelen
   pattern = args.pattern
 
-  tester = EyeBERT_MicroX(serPort,
-                          wavelen=wavelen,
-                          datarate=datarate,
-                          pattern=pattern,
-                          noOutput=silentPrint,
-                          useJson=useJson,
-                          )
+  tester = EyeBERT_MicroX(serPort, datarate=datarate, pattern=pattern)
 
-  # get SFP info
-  tester.getSFPinfo()
+  __print(tester.getTesterInfo(), useJson)
+  __print(tester.getSFPinfo(), useJson)
 
   userInput = []
   while 1:
@@ -413,10 +380,10 @@ if __name__ == "__main__":
       if l == '':
         userInput = []
       elif l == 'q' or l == 'quit':
-        tester._close()
+        tester.Close()
         exit(0)
       elif l == 'r' or l == 'reset':
-        tester.BERTrestartTest()
+        tester.resetStats()
       elif l == 'sfp':
         tester.getSFPinfo()
       elif 'tx' in l:
@@ -428,21 +395,21 @@ if __name__ == "__main__":
             if txS[1].lower() == 'off':
               tester.setSFPtxEnable(False)
           except:
-              pass
+            pass
       elif 'rate' in l: # this will reset the test
         rateS = l.split()
         if len(rateS) == 2:
           try:
             rateV = float(rateS[1])
-            tester.setBERTdataRate(rateV)
+            tester.setDataRate(rateV)
           except:
-              pass
+            pass
       elif 'p' in l: # this will reset the test
         pattS = l.split()
         if len(pattS) == 2:
           if pattS[1] in tester._bertPatterns.keys():
-            tester.setBERTpattern(pattS[1])
+            tester.setPattern(pattS[1])
       else:
         userInput.append(l)
     else:
-      tester.BERTreadStats()
+      __print(tester.getStats(), useJson)
