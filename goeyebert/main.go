@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/allefr/eyebert/go/eyebert"
+	"github.com/allefr/eyebert/goeyebert/eyebert"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/allefr/eyebert/go/eyebert"
+	"github.com/allefr/eyebert/goeyebert/eyebert"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
