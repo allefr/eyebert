@@ -7,7 +7,7 @@ package mockeyebert
 import (
 	reflect "reflect"
 
-	eyebert "github.com/allefr/eyebert/go/eyebert"
+	eyebert "github.com/allefr/eyebert/goeyebert/eyebert"
 	gomock "github.com/golang/mock/gomock"
 )
 
