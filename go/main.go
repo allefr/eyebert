@@ -24,6 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("cannot init tester: %v\n\n", err)
 	}
+	defer tester.Close()
 
 	// tester info
 	tInfo, err := tester.GetTesterInfo()
@@ -59,9 +60,6 @@ func main() {
 
 		time.Sleep(time.Duration(1000./freq) * time.Millisecond)
 	}
-
-	tester.Close()
-
 }
 
 func print(i interface{}, asJson bool) error {
