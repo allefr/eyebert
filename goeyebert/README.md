@@ -88,7 +88,7 @@ When providing the `-j` flag, the test will run outputting data in JSON format. 
 The package can be imported with
 
 ```Go
-import ("github.com/allefr/eyebert/go/eyebert")
+import ("github.com/allefr/eyebert/goeyebert/eyebert")
 ```
 
 Create an interface with the tester with
